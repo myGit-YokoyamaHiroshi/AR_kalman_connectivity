@@ -106,6 +106,25 @@ def calc_graph_laplacian(Adj, n_comp=2):
     V    = np.real(V)
     Y    = V[:, 1:n_comp+1]
     return Y
+
+def calc_MDS(Adj, n_comp=2):
+    Ndim = Adj.shape[0]
+    one  = np.eye(Ndim) - np.ones((Ndim, Ndim))/Ndim
+    
+    # Young-Householder transformation
+    # (centeralization for squared distance matrix)
+    P    = - 1/2 * ( one * Adj * one)
+    
+    E, V = np.linalg.eig(P)
+    idx  = np.flipud(np.argsort(E))
+    V    = V[:, idx]
+    
+    
+    sd   = P.std(axis=0)
+    sd   = sd[idx]
+    
+    Y    = V[:, :n_comp] * sd[:n_comp]
+    return Y
 #%%
 if __name__ == "__main__":
     Nch     = 10
@@ -328,9 +347,27 @@ if __name__ == "__main__":
         PDC_sgmnt3 = save_dict['PDC_sgmnt3']
         #%%
     del save_dict
-
+    
+    #%% MDS
+    Y_MDS = calc_MDS(abs(Distance_matrix), n_comp=3)
+    
+    fig = plt.figure()
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.8)
+    ax1 = fig.add_subplot(111, projection='3d')
+    ax1.scatter(Y_MDS[idx1, 0], Y_MDS[idx1, 1], Y_MDS[idx1, 2], c='b', label='segment 1');
+    ax1.scatter(Y_MDS[idx2, 0], Y_MDS[idx2, 1], Y_MDS[idx2, 2], c='r', label='segment 2');
+    ax1.scatter(Y_MDS[idx3, 0], Y_MDS[idx3, 1], Y_MDS[idx3, 2], c='g', label='segment 3');
+    
+    ax1.set_xlabel('axis 1')
+    ax1.set_ylabel('axis 2')
+    ax1.set_zlabel('axis 3')
+    ax1.set_title('MDS')
+    ax1.legend(loc='upper left', bbox_to_anchor=(1.0, 1.1), fontsize=15)
+    plt.show()
     #%%
     Y_isomap = manifold.Isomap(n_components=3, metric = 'precomputed').fit_transform(abs(Distance_matrix))
+    
     fig = plt.figure()
     fig.tight_layout()
     fig.subplots_adjust(right=0.8)
