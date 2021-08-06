@@ -95,3 +95,80 @@ def inv_use_cholensky(M):
     M_inv = np.dot(L_inv.T, L_inv)
     
     return M_inv
+#%% visualization
+def vis_heatmap(Mtrx, vmin, vmax, ax, strs, cbar_info, linewidths = 0, fontsize=18): # cbar_info = [True, {"orientation":"horizontal"}, ax_cb]
+    import seaborn as sns
+    import matplotlib.pylab as plt
+    import matplotlib.gridspec as gridspec
+    
+    if vmin < 0:       
+        from matplotlib.colors import LinearSegmentedColormap
+        
+        cm_b = plt.get_cmap('Blues', 128)
+        cm_r = plt.get_cmap('Reds', 128)
+        
+        color_list_b = []
+        color_list_r = []
+        for i in range(128):
+            color_list_b.append(cm_b(i))
+            color_list_r.append(cm_r(i))
+        
+        color_list_r = np.array(color_list_r)
+        color_list_b = np.flipud(np.array(color_list_b))
+        
+        color_list   = list(np.concatenate((color_list_b, color_list_r), axis=0))
+        
+        cm = LinearSegmentedColormap.from_list('custom_cmap', color_list)
+            
+    elif vmin>=0:
+        cm = plt.get_cmap('Reds', 256)
+    
+    
+    title_str = strs[0]
+    xlab      = strs[1]
+    ylab      = strs[2]
+    
+    if cbar_info[0] == True:
+        im = sns.heatmap(Mtrx, 
+                         vmin=vmin, vmax=vmax, linewidths=linewidths, linecolor='whitesmoke',
+                         cmap=cm, 
+                        cbar = True, cbar_kws = cbar_info[1], 
+                        ax=ax, cbar_ax = cbar_info[2]) 
+    else:
+        im = sns.heatmap(Mtrx, 
+                         vmin=vmin, vmax=vmax, linewidths=linewidths, linecolor='whitesmoke',
+                         cmap=cm, 
+                         cbar = False, 
+                         ax=ax) 
+    for _, spine in im.spines.items():
+           spine.set_visible(True)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(title_str, fontsize=fontsize)
+    ax.set_xlabel(xlab)
+    ax.set_ylabel(ylab)
+    ax.set_aspect('equal')   
+
+def vis_manifold(Y, list_sgmnt_idx, title_label):
+    import matplotlib.pylab as plt
+    
+    cmap = plt.get_cmap('brg', len(list_sgmnt_idx))
+    
+    fig  = plt.figure(figsize=(6, 6))
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.8)
+    ax1  = fig.add_subplot(111, projection='3d')
+    for sgmnt in range(len(list_sgmnt_idx)):
+        idx       = list_sgmnt_idx[sgmnt]
+        fig_label = 'segment ' + str(sgmnt+1)
+        ax1.scatter(Y[idx, 0], Y[idx, 1], Y[idx, 2], c=np.array(cmap(sgmnt))[np.newaxis, 0:3], label=fig_label);
+    
+    
+    
+    ax1.set_xlabel('axis 1', labelpad=20)
+    ax1.set_ylabel('axis 2', labelpad=20)
+    ax1.set_zlabel('axis 3', labelpad=20)
+    ax1.set_title(title_label)
+    ax1.legend(loc='upper left', bbox_to_anchor=(1.0, 1.1), fontsize=15)
+    
+    return fig, ax1
