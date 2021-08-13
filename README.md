@@ -41,7 +41,7 @@ from my_modules.ar_kalman_connectivity import AR_Kalman
 
 # Initialize
 model = AR_Kalman(x, p, uc, flimits)
-### x       ... input time-series, with size of [samples x channels]
+### x       .... input time-series, with size of [samples x channels]
 ### p       .... model order for AR model
 ### uc      .... noise scaling factor (e.g., uc = 1E-5) 
 ### flimits .... frequency band to estimate the time-variant connectivity (e.g., flimits = np.array([8, 12]) ) 
