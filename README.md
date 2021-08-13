@@ -58,7 +58,6 @@ PDC     = model.PDC     # time-variant partial directed coherence (PDC), with si
 
 [Example with model selection]<br>
 ```python
-```python
 # Define the module
 from my_modules.ar_kalman_connectivity import AR_Kalman
 import joblib
@@ -103,7 +102,7 @@ for i, uc in zip(np.arange(len(UC)), UC):
       P_opt  = p
       break
 
-# Estimate the model with optimal parameters
+# Fit the model and Estmate the time-variant connectivity with optimal parameters
 model, _ = calc_model(x, P_opt, UC_opt, flimits)
 
 # Get the estimation results
