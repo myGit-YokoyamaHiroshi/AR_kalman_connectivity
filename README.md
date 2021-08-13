@@ -74,8 +74,8 @@ P_candi  = np.arange(1, 11, 1) # candidate of model order P
 UC       =  np.array([10**-i for i in range(1,8)]) # candidate of noise scaling factor
 criteria = np.zeros((len(UC), len(P_candi)))
 
-# Determine the optimal parameter
 
+# Determine the optimal parameter
 for i, uc in zip(np.arange(len(UC)), UC):
   #%% Calculate time-variant AR coefficients for each model order P with noise scaling factor uc
   processed  = joblib.Parallel(n_jobs=-1, verbose=5)(joblib.delayed(calc_model)(x, p, uc, flimits) for p in P_candi)
