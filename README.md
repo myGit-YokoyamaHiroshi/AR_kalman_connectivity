@@ -33,15 +33,78 @@ This is a sample of python implementation for time-varying effective connectivit
 &ensp; Hiroshi Yokoyama<br>
 &ensp;&ensp;(Division of Neural Dynamics, Department of System Neuroscience, National Institute for Physiological Sciences, Japan)<br>
 
-# Example of use<br>
+# Example for use<br>
+[Simple example for use]<br>
 ```python
 # Define the module
 from my_modules.ar_kalman_connectivity import AR_Kalman
 
 # Initialize
 model = AR_Kalman(x, p, uc, flimits)
+### x       ... input time-series, with size of [samples x channels]
+### p       .... model order for AR model
+### uc      .... noise scaling factor (e.g., uc = 1E-5) 
+### flimits .... frequency band to estimate the time-variant connectivity (e.g., flimits = np.array([8, 12]) ) 
+
 # Fit the model and Estmate the time-variant connectivity
 model.est_kalman()
+
+# Get the estimation results
+y_hat   = model.y_hat   # mean of posterior predictive distribution for the observation model, with size of [samples x channels]
+S       = model.S       # covariance of posterior predictive distribution for the observation model, with size of [channels x channels x samples]
+loglike = model.loglike # marginal log-likelihood function, with size of [samples x 1]
+PDC     = model.PDC     # time-variant partial directed coherence (PDC), with size of [channels x channels x samples]
+```
+
+[Example with model selection]<br>
+```python
+```python
+# Define the module
+from my_modules.ar_kalman_connectivity import AR_Kalman
+import joblib
+
+# self-defined function for use the "AR_Kalman" module with parapllel loop
+def calc_model(x, p, uc, flimits):
+    model = AR_Kalman(x, p, uc, flimits)
+    model.est_kalman()
+    
+    return model, p
+
+# Determine the optimal parameter
+P_candi  = np.arange(1, 11, 1) # candidate of model order P
+UC       =  np.array([10**-i for i in range(1,8)]) # candidate of noise scaling factor
+criteria = np.zeros((len(UC), len(P_candi)))
+
+for i, uc in zip(np.arange(len(UC)), UC):
+  #%% Calculate time-variant AR coefficients for each model order P with noise scaling factor uc
+  processed  = joblib.Parallel(n_jobs=-1, verbose=5)(joblib.delayed(calc_model)(x, p, uc, flimits) for p in P_candi)
+  processed.sort(key=lambda x: x[1]) # sort the output list according to the model order
+  tmp_result = [tmp[0] for tmp in processed]
+  #%% Determine the optimal model order
+  for j in range(len(P_candi)):
+    tmp          = tmp_result[j]
+    k            = tmp.Kb0.shape[0]
+    n            = tmp.y_hat.shape[0]
+    loglike      = tmp.loglike.sum()
+    
+    # calculate the metric 
+    AIC          = -2 * loglike + 2 * k         # Akaike information criteria
+    BIC          = -2 * loglike + k * np.log(n) # Bayesian information criteria
+                
+    criteria[i,j] = np.min([AIC, BIC]) # select value
+    
+# Select the optimal parameters
+# (The parameters would be selected to minimize the metric)
+c_min = criteria.reshape(-1).min()
+for i, uc in zip(np.arange(len(UC)), UC):
+  for j, p in zip(np.arange(len(P_candi)), P_candi):
+    if criteria[i,j]==c_min:
+      UC_opt = uc
+      P_opt  = p
+      break
+
+# Estimate the model with optimal parameters
+model, _ = calc_model(x, P_opt, UC_opt, flimits)
 
 # Get the estimation results
 y_hat   = model.y_hat   # mean of posterior predictive distribution for the observation model, with size of [samples x channels]
