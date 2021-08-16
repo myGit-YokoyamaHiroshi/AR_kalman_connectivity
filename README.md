@@ -12,7 +12,7 @@ This is a sample of python implementation for time-varying effective connectivit
 &ensp;&ensp;├── \save_data … contains the dataset of estimation results <br>
 &ensp;&ensp;│<br>
 &ensp;&ensp;└─ main.py <br>
-&ensp;&ensp;&ensp;&ensp;&ensp;&ensp;&ensp;… contains sample examples for how to use of the module “ar_kalman_connectivity.py”  <br>
+&ensp;&ensp;&ensp;&ensp;&ensp;&ensp;&ensp;… contains sample script for how to use of the module “ar_kalman_connectivity.py”  <br>
 
 
 # Requirements<br>
