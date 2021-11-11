@@ -11,13 +11,12 @@ get_ipython().magic('reset -sf')
 # get_ipython().magic('cls')
 
 import os
+current_path = os.path.dirname(__file__)
+os.chdir(current_path)
 
-if os.name == 'posix': # for linux
-    os.chdir('/home/user/Documents/Python_Scripts/sim_AR_kalman_connectivity')
-elif os.name == 'nt': # for windows
-    os.chdir('D:/Python_Scripts/sim_AR_kalman_connectivity')
 
-current_path = os.getcwd()
+import sys 
+
 fig_save_dir = current_path + '/figures/'
 
 simName      = 'sim1'

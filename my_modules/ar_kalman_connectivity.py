@@ -90,7 +90,7 @@ class AR_Kalman:
         self.Kb0      = Kb0
         
         # return beta, OMEGA, Changes, L, y_hat, sigma0, Kb0
-##############################################################################
+##############################################################################    
     def calc_connectivity(beta, Nch, Nt, P, flimits):
         frqs        = np.arange(flimits[0], flimits[-1]+1, 1)
         
@@ -103,7 +103,7 @@ class AR_Kalman:
             for f in range(Nf):
                 Af_tmp = np.zeros((Nch, Nch, Np), dtype=complex)
                 for p in range(Np):
-                    Af_tmp[:,:,p] = beta[t, :, p].reshape(Nch, Nch) * np.exp(1j * 2 * np.pi * f * (p+1))
+                    Af_tmp[:,:,p] = beta[t, :, p].reshape(Nch, Nch) * np.exp(1j * 2 * np.pi * frqs[f] * (p+1))
                 
                 Aij[:,:,f] = np.eye(Nch) - np.sum(Af_tmp, axis=2)
             
@@ -111,7 +111,7 @@ class AR_Kalman:
             
             term1      = abs(Aij)**2
             term2      = np.sum(abs(Aij)**2, axis=1)
-            term2      = term2[:,np.newaxis]
+            term2      = term2[np.newaxis,:,:]
             
             pdc        = 1/f_width * np.sum(term1/term2, axis=2)
             
