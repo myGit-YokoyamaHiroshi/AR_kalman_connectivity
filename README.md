@@ -114,3 +114,17 @@ S       = model.S       # covariance of posterior predictive distribution for th
 loglike = model.loglike # marginal log-likelihood function, with size of [samples x 1]
 PDC     = model.PDC     # time-variant partial directed coherence (PDC), with size of [channels x channels x samples]
 ```
+
+#Cite
+
+Please cite our paper if you use this code in your own work:
+
+```
+@software{AR_kalman_connectivity,
+  author = {Yokoyana H.},
+  month = {12},
+  title = {{AR_kalman_connectivity}},
+  url = {https://github.com/myGit-YokoyamaHiroshi/AR_kalman_connectivity},
+  year = {2021}
+}
+```
