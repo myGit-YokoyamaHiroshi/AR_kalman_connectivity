@@ -115,7 +115,7 @@ loglike = model.loglike # marginal log-likelihood function, with size of [sample
 PDC     = model.PDC     # time-variant partial directed coherence (PDC), with size of [channels x channels x samples]
 ```
 
-#Cite
+# Cite<br>
 
 Please cite our paper if you use this code in your own work:
 
