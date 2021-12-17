@@ -117,7 +117,7 @@ PDC     = model.PDC     # time-variant partial directed coherence (PDC), with si
 
 # Cite<br>
 
-Please cite our paper if you use this code in your own work:
+Please cite our GitHub repository if you use this code in your own work:
 
 ```
 @software{AR_kalman_connectivity,
