@@ -117,12 +117,12 @@ PDC     = model.PDC     # time-variant partial directed coherence (PDC), with si
 
 # Cite<br>
 
-Please cite our GitHub repository if you use this code in your own work:
+Please cite my GitHub repository if you use this code in your own work:
 
 ```
 @software{AR_kalman_connectivity,
   author = {Yokoyana H.},
-  title = {{AR_kalman_connectivity}},
+  title = {AR_kalman_connectivity},
   url = {https://github.com/myGit-YokoyamaHiroshi/AR_kalman_connectivity},
   year = {2021}
 }
