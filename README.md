@@ -122,7 +122,6 @@ Please cite our paper if you use this code in your own work:
 ```
 @software{AR_kalman_connectivity,
   author = {Yokoyana H.},
-  month = {12},
   title = {{AR_kalman_connectivity}},
   url = {https://github.com/myGit-YokoyamaHiroshi/AR_kalman_connectivity},
   year = {2021}
