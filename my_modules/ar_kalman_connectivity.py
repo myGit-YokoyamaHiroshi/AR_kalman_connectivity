@@ -7,20 +7,27 @@ Created on Wed Feb 12 09:54:06 2020
 
 from copy import deepcopy
 import numpy as np
-
+from scipy.special import gamma, digamma, gammaln
 
 class AR_Kalman:
-    def __init__(self, x, P, UC, flimits):
+    def __init__(self, x, P, Qscale, flimits):
         self.x       = x
         self.P       = P
-        self.UC      = UC
+        self.Qscale  = Qscale
         self.flimits = flimits
+        
+        ## parameters for gamma prior 
+        self.a0    = 1
+        self.b0    = 0.5
+        
+        self.a     = self.a0 + x.shape[0]/2
+        self.b     = self.b0
 
 ##############################################################################
     def est_kalman(self):
         x           = self.x
         P           = self.P
-        UC          = self.UC
+        Qscale      = self.Qscale
         flimits     = self.flimits
         
         Nt, Nch     = x.shape
@@ -31,43 +38,39 @@ class AR_Kalman:
         
         Kb0         = np.eye(Nch*(Nch*P+1))
         mu_beta0    = np.zeros(Nch*(Nch*P+1))
-        sigma0      = np.eye(Nch)
-        
         S           = np.zeros((Nch, Nch, Total_Epoch))
-        loglike     = np.nan * np.ones(Total_Epoch)
+        self.R      = np.eye(Nch)
+        self.Q      = np.diag(Qscale * np.ones(Nch*(Nch*P+1)))
         
-        beta        = np.zeros((Nt-P, Nch*Nch, P))
-        residual    = np.zeros((Nt-P, Nch))
+        # loglike     = np.nan * np.ones(Total_Epoch)
+        ELBO        = np.nan * np.ones(Total_Epoch)
+        
+        beta        = np.zeros((Total_Epoch, Nch*Nch, P))
+        residual    = np.zeros((Total_Epoch, Nch))
+        y_hat       = np.zeros((Total_Epoch, Nch))
         #%%
         cnt      = 0
-        Q1       = UC * np.eye(Kb0.shape[0])
-        Q2       = np.eye(Nch)
         
         for i in range(P, Nt, 1):
             #%%
             print('Epoch: (%d / %d), index: %d'%(cnt+1, Total_Epoch, i))
             #########################################################################
-            AR_Kalman.make_features(self, x, i)            
-            Dx      = AR_Kalman.make_Dx(self)#(x_train, T, Nosc, 2*P)
+            self.make_features(x, i)            
+            Dx      = self.make_Dx()
             self.Dx = Dx
-            
-            #########################################################################
-            tmp_y = (Dx @ mu_beta0).reshape((1,Nch), order='C')
-            if i == P:
-                y_hat = deepcopy(tmp_y)
-            else:
-                y_hat = np.concatenate((y_hat, deepcopy(tmp_y)), axis=0)
-            
+            #########################################################################            
+            #### Prediction step
+            mu_beta, Kb = self.predict(mu_beta0, Kb0)
             #### Update step : Update prior distribution (update model parameter) 
-            mu_beta, Kb, sigma, L, Q2 = AR_Kalman.update_coeff(self, mu_beta0, Kb0, sigma0, UC, Q2)
-            Kb           = Kb + Q1
+            yPred, mu_beta_new, Kb_new, s_new, elbo = self.update(mu_beta, Kb)
+            ##########################################################################
+            y_hat[cnt,:] = deepcopy(yPred)
             
-            mu_beta0     = deepcopy(mu_beta)
-            Kb0          = deepcopy(Kb)
-            sigma0       = deepcopy(sigma)
-            
-            S[:,:,cnt]   = deepcopy(sigma)
-            loglike[cnt] = L
+            mu_beta0     = deepcopy(mu_beta_new)
+            Kb0          = deepcopy(Kb_new)
+            # loglike[cnt] = L
+            ELBO[cnt]    = elbo
+            S[:,:,cnt]   = deepcopy(s_new)
             
             tmp_beta = mu_beta.reshape((Nch, Nch*P+1))
             # tmp_beta = mu_beta.reshape((Nch, Nch*P))
@@ -79,19 +82,20 @@ class AR_Kalman:
             
             cnt += 1
         
-        PDC = AR_Kalman.calc_connectivity(beta, Nch, Nt, P, flimits)
+        PDC = self.calc_connectivity(beta, Nch, Nt, P, flimits)
         
         self.PDC      = PDC
         self.beta     = beta
         self.residual = residual
-        self.loglike  = loglike
+        # self.loglike  = loglike
+        self.ELBO     = ELBO
         self.y_hat    = y_hat
-        self.S        = S
         self.Kb0      = Kb0
+        self.S        = S
         
         # return beta, OMEGA, Changes, L, y_hat, sigma0, Kb0
 ##############################################################################    
-    def calc_connectivity(beta, Nch, Nt, P, flimits):
+    def calc_connectivity(self,beta, Nch, Nt, P, flimits):
         frqs        = np.arange(flimits[0], flimits[-1]+1, 1)
         
         Nf           = len(frqs)
@@ -140,43 +144,72 @@ class AR_Kalman:
         
         return Dx
     
-##############################################################################
-    def update_coeff(self, mu, P, S, UC, Q2):#(X, Y, Dx, mu_beta, Kb, sigma0, T, N):
-        Y  = self.y_train
-        H  = self.Dx
-        N  = self.Nch
+    def mylogdet(self, S):
+        L       = np.linalg.cholesky(S)
+        logdetS = 2*np.sum(np.log(np.diag(L)))
         
-        def mylogdet(S):
-            L       = np.linalg.cholesky(S)
-            logdetS = 2*np.sum(np.log(np.diag(L)))
-            
-            return logdetS
+        return logdetS
  
-        def inv_use_cholensky(M):
-            L     = np.linalg.cholesky(M)
-            L_inv = np.linalg.inv(L)
-            M_inv = np.dot(L_inv.T, L_inv)
-            
-            return M_inv
+    def inv_use_cholensky(self, M):
+        L     = np.linalg.cholesky(M)
+        L_inv = np.linalg.inv(L)
+        M_inv = np.dot(L_inv.T, L_inv)
+        
+        return M_inv
+##############################################################################
+    def predict(self, mu_beta, Kb):
+        Q     = self.Q
+        
+        mu_beta_new = mu_beta
+        Kb_new      = Kb + Q
+        
+        return mu_beta_new, Kb_new
+        
+    def update(self, mu, P):#(X, Y, Dx, mu_beta, Kb, sigma0, T, N):
+        Y       = self.y_train
+        H       = self.Dx
+        N       = self.Nch
+        R       = self.R
+        R_inv   = self.inv_use_cholensky(R)
+        a       = self.a + N/2
+        b       = self.b
+        
+        eta_inv = b/a
         ############# Estimate posterior distribution #############################
-        err     = (Y.reshape(-1) - np.dot(H, mu).reshape(-1)) 
-        
-        Q2      = (1 - UC) * Q2 + UC * err[:, np.newaxis] @ err[:, np.newaxis].T
-        
-        S_new   = Q2 + H @ P @ H.T 
-        S_new_inv   = inv_use_cholensky(S_new)
+        yPred   = np.dot(H, mu)
+        err     = (Y.reshape(-1) - yPred.reshape(-1)) 
+
+        S_new     = (eta_inv * R) + H @ P @ H.T 
+        S_new_inv = self.inv_use_cholensky(S_new)
         #### update Kalman gain
-        K       = P @ H.T @ S_new_inv # Kalman Gain
+        K         = P @ H.T @ S_new_inv # Kalman Gain
         #### update mean
-        mu_new  = mu + K  @ (Y.reshape(-1) - np.dot(H, mu).reshape(-1)) 
+        mu_new    = mu + K  @ (Y.reshape(-1) - np.dot(H, mu).reshape(-1)) 
         #### update covariance
-        P_new   = P - K @ S_new @ K.T 
+        P_new     = P - K @ S_new @ K.T 
+        
+        #### update gamma prior
+        b         = b + 1/2 * (err.T@R_inv@err) + 1/2 * np.trace(R_inv @ (H@P@H.T))
         ###########################################################################
         
-        Ndim         = Y.shape[0]
-        loglike      = 0.5 * (-Ndim * np.log(2*np.pi) - mylogdet(S) - (Y.reshape(-1) - np.dot(H, mu).reshape(-1))  @ inv_use_cholensky(S) @ (Y.reshape(-1) - np.dot(H, mu).reshape(-1)) )
+        logdetR    = self.mylogdet(R)
+        logdetP    = self.mylogdet(P)
+        P_inv      = self.inv_use_cholensky(P)
+        Nstate     = len(mu_new)
+        
+        ####### elbo
+        ll_state   = 1/2 * (-Nstate * np.log(2*np.pi) - logdetP - np.trace(P_inv@P))
+        ll_obs     = 1/2 * (-N * np.log(2*np.pi) +  (digamma(a) - np.log(b)) - logdetR - a/b * ((err.T@R_inv@err) + np.trace(R_inv @ (H@P@H.T))))
+        ll_gamma   = (self.a-1)* (digamma(a)-np.log(b))-gammaln(self.a)+self.a*np.log(self.b)-self.b*(a/b)
 
-        return mu_new, P_new, S_new, loglike, Q2
+        Hx         = Nstate/2 * (1 + np.log(2*np.pi)) + 1/2 * logdetP
+        Heta       = a - np.log(b) + gammaln(a) + (1-a) * digamma(a)
+        
+        elbo       = ll_state + ll_obs + ll_gamma + Hx + Heta
+        self.a     = a
+        self.b     = b
+        
+        return yPred, mu_new, P_new, S_new, elbo
 
 
 

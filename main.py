@@ -44,6 +44,7 @@ from numpy.random import randn
 import numpy as np
 import sys
 import joblib
+import multiprocessing as multi
 
 sys.path.append(current_path)
 #%%
@@ -275,17 +276,19 @@ if __name__ == "__main__":
         print(split_str)
     
     #%%
+    njob_max   = multi.cpu_count()
+    
     if (len(name) == 0) & (len(ext) == 0):
         P_candi = np.arange(1, 11, 1)
-        UC      =  np.array([10**-i for i in range(1,8)])
+        Qscale  =  np.array([10**-i for i in range(0,5)])
         
-        criteria = np.zeros((len(UC), len(P_candi)))
+        criteria = np.zeros((len(Qscale), len(P_candi)))
         
         flimits  = np.array([1, 40])
         
-        for i, uc in zip(np.arange(len(UC)), UC):
+        for i, q in zip(np.arange(len(Qscale)), Qscale):
             #%% Calculate time-variant AR coefficients for each model order P
-            processed  = joblib.Parallel(n_jobs=-1, verbose=5)(joblib.delayed(calc_model)(x, p, uc, flimits) for p in P_candi)
+            processed  = joblib.Parallel(n_jobs=int(0.5*njob_max), verbose=5)(joblib.delayed(calc_model)(x, p, q, flimits) for p in P_candi)
             processed.sort(key=lambda x: x[1]) # sort the output list according to the model order
             tmp_result = [tmp[0] for tmp in processed]
             #%% Determine the optimal model order
@@ -293,30 +296,39 @@ if __name__ == "__main__":
                 tmp          = tmp_result[j]
                 k            = tmp.Kb0.shape[0]
                 n            = tmp.y_hat.shape[0]
-                loglike      = tmp.loglike.sum()
+                elbo         = tmp.ELBO.mean()#tmp.ELBO[-1]#
+                # loglike      = tmp.loglike.sum()
                 
-                AIC          = -2 * loglike + 2 * k
-                BIC          = -2 * loglike + k * np.log(n)
+                # AIC          = -2 * loglike + 2 * k
+                # BIC          = -2 * loglike + k * np.log(n)
                 
-                criteria[i,j] = np.min([AIC, BIC])
-            print(uc)
+                criteria[i,j] = elbo#np.min([AIC, BIC])
+            
+            plt.plot(P_candi, criteria[i,:])
+            plt.xlabel('order $P$')
+            plt.ylabel('ELBO')
+            plt.show()
+            
+            print(q)
         #%%
-        c_min = criteria.reshape(-1).min()
-        for i, uc in zip(np.arange(len(UC)), UC):
+        # c_best = criteria.reshape(-1).min()
+        c_best = criteria.reshape(-1).max()
+        for i, q in zip(np.arange(len(Qscale)), Qscale):
             for j, p in zip(np.arange(len(P_candi)), P_candi):
-                if criteria[i,j]==c_min:
-                    UC_opt = uc
-                    P_opt  = p
+                if criteria[i,j]==c_best:
+                    Q_opt = q
+                    P_opt = p
                     break
         #%%
-        est_result, _ = calc_model(x, P_opt, UC_opt, flimits)
+        est_result, _ = calc_model(x, P_opt, Q_opt, flimits)
         #%%
+        Q_candi                  = Qscale
         save_dict                = {}
         save_dict['est_result']  = est_result
         save_dict['P_candi']     = P_candi
-        save_dict['UC_candi']    = UC
+        save_dict['Q_candi']     = Qscale
         save_dict['P_opt']       = P_opt
-        save_dict['UC_opt']      = UC_opt
+        save_dict['Q_opt']       = Q_opt
         save_dict['criteria']    = criteria
         save_name                = 'est_result_' + simName + '.npy'
         fullpath_save            = save_path + save_name 
@@ -328,19 +340,23 @@ if __name__ == "__main__":
      
         est_result  = save_dict['est_result']
         P_candi     = save_dict['P_candi']
-        UC          = save_dict['UC_candi']
+        Q_candi     = save_dict['Q_candi']
         P_opt       = save_dict['P_opt']
-        UC_opt      = save_dict['UC_opt']
+        Q_opt       = save_dict['Q_opt']
         criteria    = save_dict['criteria']
         
     del save_dict
     #%%
-    fig = plt.imshow(criteria, 
-                     extent=[min(P_candi),max(P_candi),min(np.log10(UC)),max(np.log10(UC))],
-                     )
-    plt.xlabel('model order $p$')
-    plt.ylabel('$\\log_{10} (UC)$')
-    plt.colorbar()
+    fig = plt.figure(figsize=(9, 6))
+    plt.imshow(criteria, 
+               extent=[min(P_candi), max(P_candi), min(np.log10(Q_candi)),max(np.log10(Q_candi))],
+               interpolation="nearest"
+               )
+    plt.xlabel('model order $P$')
+    plt.ylabel('$\\log_{10} (Q)$')
+    plt.colorbar(label='evidence lower bound (a.u.)')
+    plt.savefig(fig_save_dir + 'ELBO.png', bbox_inches="tight")
+    plt.savefig(fig_save_dir + 'ELBO.svg', bbox_inches="tight")
     plt.show()
     #%%
     save_path               = current_path + '/save_data/features/' 
@@ -376,7 +392,7 @@ if __name__ == "__main__":
         for i in range(Nt_model):
             mu1 = x_pred[i,:]
             S1  = S[:,:,i]
-            processed  = joblib.Parallel(n_jobs=-1, verbose=5)(joblib.delayed(calc_Hellinger_for_parallel)(mu1, S1, x_pred, S, j) for j in range(Nt_model))
+            processed  = joblib.Parallel(n_jobs=int(0.5*njob_max), verbose=5)(joblib.delayed(calc_Hellinger_for_parallel)(mu1, S1, x_pred, S, j) for j in range(Nt_model))
             processed.sort(key=lambda x: x[1]) # sort the output list according to the order of time stamp
             dist = [tmp[0] for tmp in processed]
             
