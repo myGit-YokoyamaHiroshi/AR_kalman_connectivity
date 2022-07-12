@@ -1,5 +1,5 @@
 # AR_kalman_connectivity<br>
-This is a sample of python implementation for time-varying effective connectivity analysis, based on Autoregressive (AR) model with Kalman filter. <br>
+This is a sample of python implementation for time-varying effective connectivity analysis, based on Autoregressive (AR) model with variational Bayesian noise adaptive Kalman Filter (vbKF). <br>
 
 # Folder structures<br>
 \AR_kalman_connectivity<br>
