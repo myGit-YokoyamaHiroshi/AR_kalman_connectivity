@@ -61,8 +61,8 @@ fig_save_dir = current_path + '/figures/'
 if os.path.exists(fig_save_dir)==False:  # Make the directory for figures
     os.makedirs(fig_save_dir)   
 #%%
-def calc_model(x, p, uc, flimits):
-    model = AR_Kalman(x, p, uc, flimits)
+def calc_model(x, p, q, flimits):
+    model = AR_Kalman(x, p, q, flimits)
     model.est_kalman()
     
     return model, p
